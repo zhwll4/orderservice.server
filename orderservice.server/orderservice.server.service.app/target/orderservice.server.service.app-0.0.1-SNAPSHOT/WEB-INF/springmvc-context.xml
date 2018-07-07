@@ -1,0 +1,181 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans.xsd
+        http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-4.1.xsd
+        http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-4.1.xsd">
+
+	
+
+
+	<mvc:interceptors>
+		<!-- 多个拦截器，顺序执行 -->
+
+		<!-- 登录判定拦截器 -->
+		<mvc:interceptor>
+			<mvc:mapping path="/**" />
+			<mvc:exclude-mapping path="/uiroot/**" />
+			<mvc:exclude-mapping path="/html*/**" />
+
+			<mvc:exclude-mapping path="/**/*.css" />
+			<mvc:exclude-mapping path="/**/*.js" />
+			<mvc:exclude-mapping path="/**/*.png" />
+			<mvc:exclude-mapping path="/**/*.gif" />
+			<mvc:exclude-mapping path="/**/*.jpg" />
+			<mvc:exclude-mapping path="/**/*.jpeg" />
+
+			<mvc:exclude-mapping path="/**/*login*.jsp" />
+			<mvc:exclude-mapping path="/**/*Login*.jsp" />
+			<bean class="orderservice.server.service.app.web.DefaultLoginInterceptor"></bean>
+		</mvc:interceptor>
+	</mvc:interceptors>
+
+
+
+
+	<!-- 通过Bean名称的解析器 -->
+	<bean class="org.springframework.web.servlet.view.BeanNameViewResolver">
+		<property name="order" value="10" />
+	</bean>
+	<import resource="springmvcconfig/beannames.xml" />
+
+
+	<bean class="org.springframework.web.servlet.view.ResourceBundleViewResolver">
+		<property name="basename" value="springmvc.views" />
+		<property name="order" value="100" />
+	</bean>
+
+
+
+	<!-- XML配置文件解析器 -->
+	<bean class="org.springframework.web.servlet.view.XmlViewResolver">
+		<property name="location" value="/WEB-INF/springmvcconfig/xmlviews.xml" />
+		<property name="order" value="500" />
+	</bean>
+
+
+	<!-- FreeMarker解析器 -->
+	<bean
+		class="org.springframework.web.servlet.view.freemarker.FreeMarkerViewResolver">
+		<property name="order" value="1000"></property>
+		<property name="suffix" value=".ftl"></property>
+		<property name="contentType" value="text/html;charset=utf-8"></property>
+		<property name="viewClass">
+			<value>org.springframework.web.servlet.view.freemarker.FreeMarkerView
+			</value>
+		</property>
+	</bean>
+	<!--freemarker配置 -->
+	<bean id="freemarkerConfig"
+		class="org.springframework.web.servlet.view.freemarker.FreeMarkerConfigurer">
+		<property name="templateLoaderPath">
+			<value>/WEB-INF/resolvers/ftltemplates/</value>
+		</property>
+		<property name="freemarkerSettings"><!-- 设置FreeMarker环境属性 -->
+			<props>
+				<prop key="template_update_delay">60</prop><!--刷新模板的周期，单位为秒 -->
+				<prop key="default_encoding">UTF-8</prop><!--模板的编码格式 -->
+				<prop key="locale">UTF-8</prop><!--本地化设置 -->
+				<prop key="datetime_format">yyyy-MM-dd HH:mm:ss</prop>
+				<prop key="time_format">HH:mm:ss</prop>
+				<prop key="number_format">0.####</prop>
+				<prop key="boolean_format">true,false</prop>
+				<prop key="whitespace_stripping">true</prop>
+				<prop key="tag_syntax">auto_detect</prop>
+				<prop key="url_escaping_charset">UTF-8</prop>
+			</props>
+		</property>
+	</bean>
+
+
+	<!-- 默认解析器，如果其他解析器都没找到就用它 -->
+	<bean
+		class="org.springframework.web.servlet.view.InternalResourceViewResolver">
+		<!-- 前缀 -->
+		<property name="prefix" value="/WEB-INF/resolvers/jsps/" />
+		<!-- 后缀 -->
+		<property name="suffix" value=".jsp" />
+
+		<property name="viewClass">
+			<value>org.springframework.web.servlet.view.InternalResourceView
+			</value>
+		</property>
+
+		<property name="order" value="2000" />
+
+	</bean>
+
+	<!-- 配置文件上传，如果没有使用文件上传可以不用配置，当然如果不配，那么配置文件中也不必引入上传组件包 -->
+	<bean id="multipartResolver"
+		class="org.springframework.web.multipart.commons.CommonsMultipartResolver">
+		<!-- 默认编码 -->
+		<property name="defaultEncoding" value="utf-8" />
+		<!-- 文件大小最大值 -->
+		<property name="maxUploadSize" value="10485760000" />
+		<!-- 内存中的最大值 -->
+		<property name="maxInMemorySize" value="40960" />
+	</bean>
+
+	<bean id="contentNegotiationManager"
+		class="org.springframework.web.accept.ContentNegotiationManagerFactoryBean">
+		<!-- 扩展名至mimeType的映射,即 /user.json => application/json -->
+		<property name="favorPathExtension" value="true" />
+		<!-- 用于开启 /userinfo/123?format=json 的支持 -->
+		<property name="favorParameter" value="true" />
+		<property name="parameterName" value="format" />
+		<!-- 是否忽略Accept Header -->
+		<property name="ignoreAcceptHeader" value="false" />
+		<property name="mediaTypes"> <!--扩展名到MIME的映射；favorPathExtension, favorParameter是true时起作用 -->
+			<value>
+				json=application/json
+				xml=application/xml
+				html=text/html
+			</value>
+		</property>
+		<!-- 默认的content type -->
+		<property name="defaultContentType" value="text/html" />
+	</bean>
+
+	<bean
+		class="org.springframework.web.servlet.view.ContentNegotiatingViewResolver">
+		<!-- 内容协商管理器 用于决定media type -->
+		<property name="contentNegotiationManager" ref="contentNegotiationManager" />
+		<!-- 默认视图 放在解析链最后 -->
+		<property name="defaultViews">
+			<list>
+				<bean
+					class="org.springframework.web.servlet.view.json.MappingJackson2JsonView" />
+				<!-- bean class="org.springframework.web.servlet.view.xml.MarshallingView">
+					<property name="marshaller">
+						<bean class="org.springframework.oxm.jaxb.Jaxb2Marshaller">
+							<property name="packagesToScan"
+								value="dtr.tj.hosp.manger.mybatis.entity,cn.javass"></property>
+						</bean>
+					</property>
+				</bean -->
+				<bean
+					class="org.springframework.web.servlet.view.xml.MappingJackson2XmlView">
+				</bean>
+			</list>
+		</property>
+		<property name="order" value="0" />
+	</bean>
+
+	
+	<import resource="actions.xml" />
+	
+	<!-- scan the package and the sub package -->
+	<context:component-scan
+		base-package="orderservice.server.service.app.testmvc" />
+
+	<!-- don't handle the static resource -->
+	<mvc:default-servlet-handler />
+
+	<!-- if you use annotation you must configure following setting -->
+	<mvc:annotation-driven
+      content-negotiation-manager= "contentNegotiationManager"
+      >
+	</mvc:annotation-driven> 
+
+</beans>

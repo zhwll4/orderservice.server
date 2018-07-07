@@ -1,0 +1,202 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- - Application context definition for PetClinic on JDBC. -->
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:aop="http://www.springframework.org/schema/aop"
+	xmlns:tx="http://www.springframework.org/schema/tx" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:jdbc="http://www.springframework.org/schema/jdbc"
+	xmlns:cache="http://www.springframework.org/schema/cache" xmlns:jpa="http://www.springframework.org/schema/data/jpa"
+	xmlns:jee="http://www.springframework.org/schema/jee"
+	xsi:schemaLocation="
+    http://www.springframework.org/schema/context  
+    http://www.springframework.org/schema/context/spring-context.xsd
+    http://www.springframework.org/schema/beans  
+    http://www.springframework.org/schema/beans/spring-beans.xsd  
+    http://www.springframework.org/schema/tx 
+    http://www.springframework.org/schema/tx/spring-tx.xsd  
+    http://www.springframework.org/schema/jdbc  
+    http://www.springframework.org/schema/jdbc/spring-jdbc-3.1.xsd  
+    http://www.springframework.org/schema/cache  
+    http://www.springframework.org/schema/cache/spring-cache-3.1.xsd  
+    http://www.springframework.org/schema/aop  
+    http://www.springframework.org/schema/aop/spring-aop.xsd  
+    http://www.springframework.org/schema/util
+    http://www.springframework.org/schema/util/spring-util.xsd
+    http://www.springframework.org/schema/data/jpa
+    http://www.springframework.org/schema/data/jpa/spring-jpa.xsd
+    http://www.springframework.org/schema/jee
+    http://www.springframework.org/schema/jee/spring-jee-3.2.xsd">
+
+	<!-- ========================= RESOURCE DEFINITIONS ========================= -->
+
+
+	<bean id="propertyConfigurer"
+		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
+		<property name="location" value="/WEB-INF/classes/jdbc.properties" />
+	</bean>
+
+	<bean id="messageSource"
+		class="org.springframework.context.support.ReloadableResourceBundleMessageSource">
+		<property name="cacheSeconds" value="10"></property>
+		<property name="basenames">
+			<list>
+				<value>classpath:systemset</value>
+				<value>classpath:jdbc</value>
+			</list>
+		</property>
+	</bean>
+
+	<!-- 两个数据源的共用配置，方便下面直接引用 -->
+	<bean id="abstractXADataSource" class="com.atomikos.jdbc.AtomikosDataSourceBean"
+		init-method="init" destroy-method="close" abstract="true">
+		<property name="poolSize" value="10" />
+		<property name="minPoolSize" value="10" />
+		<property name="maxPoolSize" value="30" />
+		<property name="borrowConnectionTimeout" value="60" />  <!--获取连接失败重新获等待最大时间，在这个时间内如果有可用连接，将返回 -->
+		<property name="reapTimeout" value="20" /> <!--最大获取数据时间，如果不设置这个值，Atomikos使用默认的5分钟，那么在处理大批量数据读取的时候，一旦超过5分钟，就会抛出类似 Resultset 
+			is close 的错误. -->
+		<property name="maxIdleTime" value="60" />    <!--最大闲置时间，超过最小连接池连接的连接将将关闭 -->
+		<property name="maintenanceInterval" value="60" />  <!--连接回收时间 -->
+		<property name="loginTimeout" value="60" />     <!--java数据库连接池，最大可等待获取datasouce的时间 -->
+		<property name="logWriter" value="60" />
+		<property name="testQuery">
+			<value>select 1</value>
+		</property>
+
+	</bean>
+
+
+	<bean id="atomikosTransactionManager" class="com.atomikos.icatch.jta.UserTransactionManager"
+		init-method="init" destroy-method="close">
+		<property name="forceShutdown" value="false" />
+	</bean>
+
+	<bean id="atomikosUserTransaction" class="com.atomikos.icatch.jta.J2eeUserTransaction">
+		<property name="transactionTimeout" value="300" />
+	</bean>
+
+	<bean id="transactionManagerJTA"
+		class="org.springframework.transaction.jta.JtaTransactionManager"
+		depends-on="atomikosTransactionManager,atomikosUserTransaction">
+		<property name="transactionManager" ref="atomikosTransactionManager" />
+		<property name="userTransaction" ref="atomikosUserTransaction" />
+		<property name="allowCustomIsolationLevels" value="true" />
+	</bean>
+
+
+	<bean id="hibernateJpaVendorAdapter"
+		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
+		<property name="databasePlatform">
+			<value>${dialect.MySQL5}</value>
+		</property>
+		<property name="showSql">
+			<value>true</value>
+		</property>
+		<property name="generateDdl">
+			<value>true</value>
+		</property>
+	</bean>
+
+	<bean id="entityManagerFactory"
+		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean"
+		abstract="true">
+		<property name="persistenceXmlLocation" value="classpath*:WEB-INF/persistence.xml" />
+		<property name="persistenceUnitName" value="mysqlPU" />
+		<property name="jpaVendorAdapter" ref="hibernateJpaVendorAdapter" />
+		<property name="jpaProperties">
+			<props>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.format_sql">true</prop>
+				<prop key="hibernate.generate_statistics">true</prop>
+				<prop key="hibernate.originalText">replace</prop>
+				<prop key="hibernate.jdbc.batch_size">50</prop>
+				<prop key="hibernate.jdbc.fetch_size">50</prop>
+				<prop key="hibernate.current_session_context_class">jta</prop>
+				<!-- prop key="hibernate.cache.use_second_level_cache">true</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.SingletonEhCacheRegionFactory
+				</prop -->
+			</props>
+		</property>
+	</bean>
+
+
+
+	<!-- 数据源1 -->
+	<bean id="dataSourceA" parent="abstractXADataSource">
+		<property name="uniqueResourceName" value="XA1DBMS" />
+		<property name="xaDataSourceClassName" value="${xa.datasource.mysql}" />
+		<property name="xaProperties">
+			<props>
+				<prop key="pinGlobalTxToPhysicalConnection">true</prop>
+				<prop key="URL">${jdbc.url}</prop>
+				<prop key="user">${jdbc.username}</prop>
+				<prop key="password">${jdbc.password}</prop>
+			</props>
+		</property>
+		<property name="poolSize" value="10" />
+		<property name="minPoolSize" value="10" />
+		<property name="maxPoolSize" value="30" />
+	</bean>
+
+	<bean id="entityManagerA" parent="entityManagerFactory">
+		<property name="dataSource" ref="dataSourceA" />
+		<property name="packagesToScan" value="orderservice.server.core.po" />
+	</bean>
+
+
+	<!-- 数据源2 -->
+	<bean id="dataSourceB" parent="abstractXADataSource">
+		<property name="uniqueResourceName" value="XA2DBMS" />
+		<property name="xaDataSourceClassName" value="${xa.datasource.mysql}" />
+		<property name="xaProperties">
+			<props>
+				<prop key="pinGlobalTxToPhysicalConnection">true</prop>
+				<prop key="URL">${jdbc.url}</prop>
+				<prop key="user">${jdbc.username}</prop>
+				<prop key="password">${jdbc.password}</prop>
+			</props>
+		</property>
+		<property name="poolSize" value="10" />
+		<property name="minPoolSize" value="10" />
+		<property name="maxPoolSize" value="30" />
+	</bean>
+
+	<bean id="entityManagerB" parent="entityManagerFactory">
+		<property name="dataSource" ref="dataSourceB" />
+		<property name="packagesToScan" value="orderservice.server.core.po" />
+	</bean>
+	
+	<bean id="baseTransactionProxy"
+		class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean"
+		abstract="true">
+		<property name="transactionManager" ref="transactionManagerJTA" />
+		<property name="transactionAttributes">
+			<props>
+				<prop key="insert*">PROPAGATION_REQUIRED,-MiniException</prop>
+				<prop key="add*">PROPAGATION_REQUIRED,-MiniException</prop>
+				<prop key="update*">PROPAGATION_REQUIRED,-MiniException</prop>
+				<prop key="save*">PROPAGATION_REQUIRED,-MiniException</prop>
+				<prop key="saveOrUpdate*">PROPAGATION_REQUIRED,-MiniException</prop>
+				<prop key="delete*">PROPAGATION_REQUIRED,-MiniException</prop>
+				<prop key="get*">PROPAGATION_REQUIRED,readOnly,-MiniException</prop>
+				<prop key="search*">PROPAGATION_REQUIRED,readOnly,-MiniException</prop>
+				<prop key="*">PROPAGATION_REQUIRED,readOnly,-MiniException</prop>
+			</props>
+		</property>
+	</bean>
+
+
+
+
+
+
+
+
+	<!-- 注解事务配置 -->
+	<context:annotation-config />
+	<tx:annotation-driven transaction-manager="transactionManagerJTA" />
+	<context:component-scan base-package="dtr.tj.hosp.manger.service.imp"></context:component-scan>
+	<context:component-scan base-package="aircontrol.action"></context:component-scan>
+
+
+</beans>
