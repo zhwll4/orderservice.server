@@ -12,6 +12,7 @@ import com.auth0.jwt.algorithms.Algorithm;
 import com.auth0.jwt.interfaces.Claim;
 import com.auth0.jwt.interfaces.DecodedJWT;
 import com.auth0.jwt.interfaces.Verification;
+import com.fasterxml.jackson.annotation.JsonInclude.Include;
 import com.fasterxml.jackson.databind.util.JSONPObject;
 
 public class TokenUtils {
@@ -28,7 +29,7 @@ public class TokenUtils {
 	
 	
 	
-	public static String createToken(String datas,int expireMilliSeconds){
+	public static <T> String createToken(T datas,int expireMilliSeconds){
 		
 		String jwtSec = BasicUtils.getTextValue("jwttokensec",defaultJwtSec);
 		
@@ -37,8 +38,16 @@ public class TokenUtils {
 		nowTime.add(Calendar.MILLISECOND, expireMilliSeconds);
 		Date expiresDate = nowTime.getTime();
  
+		String sdatas = null;
+		
+		if(datas instanceof String){
+			sdatas = (String) datas;
+		}else{
+			sdatas = JsonUtils.stringify(datas);
+		}
+		
 		String token  = JWT.create().withHeader(map)
-				.withClaim("datas", datas==null?"":datas) 
+				.withClaim("datas", sdatas==null?"":sdatas) 
 				.withIssuedAt(iatDate) // sign time
 				.withExpiresAt(expiresDate) // expire time
 				.sign(Algorithm.HMAC256(jwtSec)); // signature
@@ -46,6 +55,24 @@ public class TokenUtils {
 		return token;
 		
 	}
+//	public static String createToken(String datas,int expireMilliSeconds){
+//		
+//		String jwtSec = BasicUtils.getTextValue("jwttokensec",defaultJwtSec);
+//		
+//		Date iatDate = new Date();
+//		Calendar nowTime = Calendar.getInstance();
+//		nowTime.add(Calendar.MILLISECOND, expireMilliSeconds);
+//		Date expiresDate = nowTime.getTime();
+// 
+//		String token  = JWT.create().withHeader(map)
+//				.withClaim("datas", datas==null?"":datas) 
+//				.withIssuedAt(iatDate) // sign time
+//				.withExpiresAt(expiresDate) // expire time
+//				.sign(Algorithm.HMAC256(jwtSec)); // signature
+// 
+//		return token;
+//		
+//	}
 	/**
 	 * 解密Token
 	 * 
@@ -63,5 +90,30 @@ public class TokenUtils {
 			return null;
 		}
 		return jwt.getClaims();
+	}
+	/**
+	 * 解密Token
+	 * 
+	 * @param token
+	 * @return
+	 * @throws Exception
+	 */
+	public static <T> T getDatas(String token,Class<T> t) {
+		DecodedJWT jwt = null;
+		try {
+			String jwtSec = BasicUtils.getTextValue("jwttokensec",defaultJwtSec);
+			JWTVerifier verifier = JWT.require(Algorithm.HMAC256(jwtSec)).build();
+			jwt = verifier.verify(token);
+			
+			String data = jwt.getClaims().get("datas").asString();
+			if(t.getName().equals(String.class.getName())){
+				return (T) data;
+			}else{
+				return JsonUtils.parseObject(data, t);
+			}
+		} catch (Exception e) {
+			
+			return null;
+		}
 	}
 }

@@ -44,7 +44,6 @@ public class BasicUtils extends MiniBasic{
 			String msgx=getMsg().getMessage(name,null,resLocale);
 			return msgx;
 		}catch(Exception e){
-			e.printStackTrace();
 			return defaultValue;
 		}
 	}

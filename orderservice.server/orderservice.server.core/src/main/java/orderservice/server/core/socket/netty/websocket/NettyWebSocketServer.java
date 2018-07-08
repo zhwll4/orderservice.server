@@ -1,6 +1,10 @@
-package orderservice.server.core.netty.websocket;
+package orderservice.server.core.socket.netty.websocket;
 
+import java.util.List;
+import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+
+import org.apache.tomcat.util.net.SSLUtil;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -13,33 +17,32 @@ import io.netty.channel.socket.SocketChannel;
 import io.netty.channel.socket.nio.NioServerSocketChannel;
 import io.netty.handler.codec.http.HttpObjectAggregator;
 import io.netty.handler.codec.http.HttpServerCodec;
+import io.netty.handler.ssl.SslHandler;
 import io.netty.handler.stream.ChunkedWriteHandler;
 import io.netty.util.internal.StringUtil;
+import orderservice.server.core.basic.SSLUtils;
+import orderservice.server.core.socket.netty.BaseSocketServer;
 
-public class NettyWebSocketServer {
+public class NettyWebSocketServer extends BaseSocketServer{
 
+	protected boolean isClientdMode = false;
 	
-	private String hostIp;
-	private int hostPort;
-	private INettySocketSetter socketSetter;
+	private ChannelPipeline pipeline;
 	
-	private ConcurrentHashMap<String,DefaultWebSocketServerHandler> authClients = new ConcurrentHashMap<String,DefaultWebSocketServerHandler>();
-	
-	
-	
-	public NettyWebSocketServer(String hostIp,int hostPort,INettySocketSetter socketSetter){
-		
-		this.hostIp = hostIp;
-		this.hostPort = hostPort;
-		this.socketSetter = socketSetter;
-		
+	public NettyWebSocketServer(String host, Integer port) {
+		super(host, port, 10, null, null, null, null);
+		// TODO Auto-generated constructor stub
 	}
 	
-	private NettyWebSocketServer getServer(){
-		return this;
+	public NettyWebSocketServer(String host, Integer port, int workThreads, String sslpath, String ssltype,
+			String password, String sslinstance,boolean isClientdMode) {
+		super(host, port, workThreads, sslpath, ssltype, password, sslinstance);
+		this.isClientdMode = isClientdMode;
+		// TODO Auto-generated constructor stub
 	}
 	
-	public void configServer() {
+	
+	public <T extends ChannelHandler> void  startServer(Map<String,Class<T>> handlers) {
 		// Boss线程：由这个线程池提供的线程是boss种类的，用于创建、连接、绑定socket，
 		// （有点像门卫）然后把这些socket传给worker线程池。
 		// 在服务器端每个监听的socket都有一个boss线程来处理。在客户端，只有一个boss线程来处理所有的socket。
@@ -52,25 +55,16 @@ public class NettyWebSocketServer {
 			b.group(bossGroup, workGroup);
 			// 设置非阻塞,用它来建立新accept的连接,用于构造serversocketchannel的工厂类
 			b.channel(NioServerSocketChannel.class);
-			// ChildChannelHandler 对出入的数据进行的业务操作,其继承ChannelInitializer
 			
-			ChannelHandler  chandler= null;
-			if(socketSetter!=null){
-				chandler = socketSetter.getChildHandler();
-			}
+			b.childHandler(new ChildChannelHandler(handlers));
 			
-			if(chandler == null){
-				chandler = new ChildChannelHandler();
-			}
-			
-			b.childHandler(chandler);
-
 			Channel ch ;
-			if(StringUtil.isNullOrEmpty(hostIp)){
-				ch = b.bind(hostPort).sync().channel();
+			if(StringUtil.isNullOrEmpty(host)){
+				ch = b.bind(port).sync().channel();
 			}else{
-				ch = b.bind(hostIp,hostPort).sync().channel();
+				ch = b.bind(host,port).sync().channel();
 			}
+			
 			ch.closeFuture().sync();
 		} catch (Exception e) {
 			e.printStackTrace();
@@ -79,29 +73,37 @@ public class NettyWebSocketServer {
 			workGroup.shutdownGracefully();
 		}
 	}
-	class ChildChannelHandler extends ChannelInitializer<Channel>{
+	
+	public ChannelPipeline getPipeline(){
+		return this.pipeline;
+	}
+	
+	class ChildChannelHandler<T extends ChannelHandler> extends ChannelInitializer<Channel>{
+		
+		private Map<String,Class<T>> handlers;
+		
+		public ChildChannelHandler(Map<String, Class<T>> handlers){
+			this.handlers = handlers;
+		}
+		
 		
 		@Override
 		protected void initChannel(Channel ch) throws Exception {
-			ChannelPipeline pipeline = ch.pipeline();
-	         
+			 pipeline = ch.pipeline();
+	        
+			if(!StringUtil.isNullOrEmpty(sslpath)&&password!=null){
+				pipeline.addLast(new SslHandler(SSLUtils.createSSLEngine(ssltype, sslpath, password, sslinstance, isClientdMode)));
+			}
+			
 			pipeline.addLast("http-codec",new HttpServerCodec());
 			pipeline.addLast("aggregator",new HttpObjectAggregator(65536));
 			pipeline.addLast("http-chunked",new ChunkedWriteHandler());
 			
-			//ChannelHandler chandler = socketSetter.getLastHandler();
-			ChannelHandler  chandler= null;
-			if(socketSetter!=null){
-				chandler = socketSetter.getLastHandler();
+			for(String name : handlers.keySet()){
+				pipeline.addLast(name,handlers.get(name).newInstance());
 			}
 			
-			if(chandler == null){
-				DefaultWebSocketServerHandler dfb = new DefaultWebSocketServerHandler();
-				dfb.setNettyServer(getServer());
-				chandler = dfb;
-			}
 			
-			pipeline.addLast("handler",chandler);
 		}
 		
 	}

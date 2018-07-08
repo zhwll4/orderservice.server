@@ -1,11 +1,10 @@
-package orderservice.server.core.netty.socketio;
+package orderservice.server.core.socket.netty.socketio;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.security.NoSuchAlgorithmException;
-import java.util.Properties;
 
 import javax.annotation.PreDestroy;
 
@@ -15,29 +14,26 @@ import com.corundumstudio.socketio.HandshakeData;
 import com.corundumstudio.socketio.SocketIOServer;
 
 import io.netty.util.internal.StringUtil;
+import orderservice.server.core.socket.netty.BaseSocketServer;
 
-public class NettySocketIOServer {
+public  class NettySocketIOServer extends BaseSocketServer{
 
-    private String host;  
-  
-    private Integer port;
-    
-    private String sslpath;
-    
-    private int workThreads;
-    
-    private String systemPassword;
-    
-    private SocketIOServer server ;
-    
-    
-    public NettySocketIOServer(String host,Integer port,String sslpath,int workThreads,String systemPassword){
-    	this.host = host;
-    	this.port = port;
-    	this.sslpath = sslpath;
-    	this.workThreads = workThreads;
-    	this.systemPassword = systemPassword;
-    }
+
+	
+	public NettySocketIOServer(String host, Integer port, int workThreads) {
+		super(host, port, workThreads, null, null, null, null);
+		// TODO Auto-generated constructor stub
+	}
+	
+	public NettySocketIOServer(String host, Integer port, int workThreads, String sslpath, String ssltype,
+			String password, String sslinstance) {
+		super(host, port, workThreads, sslpath, ssltype, password, sslinstance);
+		// TODO Auto-generated constructor stub
+	}
+
+	private SocketIOServer server ;
+	
+   
     
     
     public SocketIOServer getSocketIOServer() throws NoSuchAlgorithmException, IOException   
@@ -51,26 +47,20 @@ public class NettySocketIOServer {
 		config.setPort(port);
 		
 		if(!StringUtil.isNullOrEmpty(sslpath)){
-			File sslFile = new File(sslpath) ;
+			File  sslFile = new File(sslpath) ;
 	        if(sslFile.exists()){
-	        	Properties sslProperties = new Properties();
-	        	FileInputStream in = new FileInputStream(sslFile);
-	        	sslProperties.load(in);
-	        	in.close();
-	        	if(!StringUtil.isNullOrEmpty(sslProperties.getProperty("key-store")) && !StringUtil.isNullOrEmpty(sslProperties.getProperty("key-store-password"))){
-	        		config.setKeyStorePassword(systemPassword);
-	        	    InputStream stream = new FileInputStream(new File(sslpath , "ssl/"+sslProperties.getProperty("key-store")));
-	        	    config.setKeyStore(stream);
-	        	}
+	        	config.setKeyStorePassword(password);
+	        	InputStream stream = new FileInputStream(sslFile);
+        	    config.setKeyStore(stream);
+	        	
 	        }
 		}
-		
 		
 		config.setWorkerThreads(workThreads);
 
 		config.setAuthorizationListener(new AuthorizationListener() {
 			public boolean isAuthorized(HandshakeData data) {
-				return true;	//其他安全验证策略，IP，Token，用户名
+				return authorizedClient(data);	//其他安全验证策略，IP，Token，用户名
 			}
 		});
 		/**
@@ -81,11 +71,15 @@ public class NettySocketIOServer {
 		config.getSocketConfig().setTcpNoDelay(true);
 		config.getSocketConfig().setTcpKeepAlive(true);
 		
-		SocketIOServer server =  new SocketIOServer(config);  
+		this.server =  new SocketIOServer(config);  
 		
         return server;
     }
     
+    protected boolean authorizedClient(HandshakeData data){
+    	
+    	return true;
+    }
     
     @PreDestroy  
     public void destory() { 
