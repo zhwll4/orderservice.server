@@ -1,10 +1,7 @@
 package orderservice.server.core.socket.netty.websocket;
 
-import java.util.List;
 import java.util.Map;
-import java.util.concurrent.ConcurrentHashMap;
 
-import org.apache.tomcat.util.net.SSLUtil;
 
 import io.netty.bootstrap.ServerBootstrap;
 import io.netty.channel.Channel;
@@ -28,6 +25,8 @@ public class NettyWebSocketServer extends BaseSocketServer{
 	protected boolean isClientdMode = false;
 	
 	private ChannelPipeline pipeline;
+	private Channel ch ;
+	
 	
 	public NettyWebSocketServer(String host, Integer port) {
 		super(host, port, 10, null, null, null, null);
@@ -58,14 +57,14 @@ public class NettyWebSocketServer extends BaseSocketServer{
 			
 			b.childHandler(new ChildChannelHandler(handlers));
 			
-			Channel ch ;
+			
 			if(StringUtil.isNullOrEmpty(host)){
-				ch = b.bind(port).sync().channel();
+				this.ch = b.bind(port).sync().channel();
 			}else{
-				ch = b.bind(host,port).sync().channel();
+				this.ch = b.bind(host,port).sync().channel();
 			}
 			
-			ch.closeFuture().sync();
+			this.ch.closeFuture().sync();
 		} catch (Exception e) {
 			e.printStackTrace();
 		} finally {
@@ -76,6 +75,9 @@ public class NettyWebSocketServer extends BaseSocketServer{
 	
 	public ChannelPipeline getPipeline(){
 		return this.pipeline;
+	}
+	public Channel getChannel(){
+		return this.ch;
 	}
 	
 	class ChildChannelHandler<T extends ChannelHandler> extends ChannelInitializer<Channel>{

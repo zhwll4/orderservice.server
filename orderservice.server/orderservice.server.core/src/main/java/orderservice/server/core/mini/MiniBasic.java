@@ -12,8 +12,10 @@ import java.util.Random;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
-
+ 
 import javax.imageio.ImageIO;
 
 import org.apache.log4j.Logger;
@@ -27,9 +29,19 @@ public class MiniBasic {
 	public static Random random =new Random();
 	
 	private static ExecutorService defaultThreadPool ;
-
+	private static ScheduledExecutorService scheduledThreadPool ;
 	public static ConcurrentHashMap<String,Object> gloabMemData= new ConcurrentHashMap<String,Object>();
 	
+	
+	public static  ScheduledExecutorService getScheduledThreadPool(){
+		if(scheduledThreadPool== null){
+			int scct = Runtime.getRuntime().availableProcessors()*2;
+			scct = scct<=4?4:scct;
+			scheduledThreadPool = Executors.newScheduledThreadPool(scct);
+		 
+		}
+		return scheduledThreadPool;
+	}
 	
 	
 	public static void startNewThread(Runnable th){
@@ -62,13 +74,13 @@ public class MiniBasic {
 	
 	public static Logger getLogger(){
 		if(logger==null){
-			logger = Logger.getLogger("ZHW-SERVER") ;
+			logger = Logger.getLogger("THM-SERVER") ;
 		}
 		return logger;
 	}
 	public static Logger getLogger(String name){
 		if(name==null){
-			name = "ZHW-SERVER";
+			name = "THM-SERVER";
 		}
 		return Logger.getLogger(name) ;
 	}

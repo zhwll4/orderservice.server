@@ -29,7 +29,7 @@ public class TokenUtils {
 	
 	
 	
-	public static <T> String createToken(T datas,int expireMilliSeconds){
+	public static String createToken(Object datas,int expireMilliSeconds){
 		
 		String jwtSec = BasicUtils.getTextValue("jwttokensec",defaultJwtSec);
 		
@@ -38,16 +38,9 @@ public class TokenUtils {
 		nowTime.add(Calendar.MILLISECOND, expireMilliSeconds);
 		Date expiresDate = nowTime.getTime();
  
-		String sdatas = null;
-		
-		if(datas instanceof String){
-			sdatas = (String) datas;
-		}else{
-			sdatas = JsonUtils.stringify(datas);
-		}
-		
+	
 		String token  = JWT.create().withHeader(map)
-				.withClaim("datas", sdatas==null?"":sdatas) 
+				.withClaim("datas", datas==null?"":JsonUtils.stringify(datas)) 
 				.withIssuedAt(iatDate) // sign time
 				.withExpiresAt(expiresDate) // expire time
 				.sign(Algorithm.HMAC256(jwtSec)); // signature
@@ -55,24 +48,6 @@ public class TokenUtils {
 		return token;
 		
 	}
-//	public static String createToken(String datas,int expireMilliSeconds){
-//		
-//		String jwtSec = BasicUtils.getTextValue("jwttokensec",defaultJwtSec);
-//		
-//		Date iatDate = new Date();
-//		Calendar nowTime = Calendar.getInstance();
-//		nowTime.add(Calendar.MILLISECOND, expireMilliSeconds);
-//		Date expiresDate = nowTime.getTime();
-// 
-//		String token  = JWT.create().withHeader(map)
-//				.withClaim("datas", datas==null?"":datas) 
-//				.withIssuedAt(iatDate) // sign time
-//				.withExpiresAt(expiresDate) // expire time
-//				.sign(Algorithm.HMAC256(jwtSec)); // signature
-// 
-//		return token;
-//		
-//	}
 	/**
 	 * 解密Token
 	 * 

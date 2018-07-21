@@ -25,9 +25,10 @@
 			<mvc:exclude-mapping path="/**/*.jpg" />
 			<mvc:exclude-mapping path="/**/*.jpeg" />
 
-			<mvc:exclude-mapping path="/**/*login*.jsp" />
-			<mvc:exclude-mapping path="/**/*Login*.jsp" />
-			<bean class="orderservice.server.service.app.web.DefaultLoginInterceptor"></bean>
+			<mvc:exclude-mapping path="/**/login/*" />
+			<mvc:exclude-mapping path="/**/register/*" />
+			<mvc:exclude-mapping path="/**/nocheckLogin/**" />
+			<bean class="orderservice.server.service.app.web.APPInterceptor"></bean>
 		</mvc:interceptor>
 	</mvc:interceptors>
 
@@ -163,19 +164,18 @@
 	</bean>
 
 	
-	<import resource="actions.xml" />
 	
 	<!-- scan the package and the sub package -->
 	<context:component-scan
-		base-package="orderservice.server.service.app.testmvc" />
+		base-package="orderservice.server.service.app.sample.controller">
+	</context:component-scan>			
 
 	<!-- don't handle the static resource -->
 	<mvc:default-servlet-handler />
 
 	<!-- if you use annotation you must configure following setting -->
 	<mvc:annotation-driven
-      content-negotiation-manager= "contentNegotiationManager"
-      >
+      content-negotiation-manager= "contentNegotiationManager">
 	</mvc:annotation-driven> 
 
 </beans>

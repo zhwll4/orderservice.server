@@ -36,7 +36,7 @@ public  class NettySocketIOServer extends BaseSocketServer{
    
     
     
-    public SocketIOServer getSocketIOServer() throws NoSuchAlgorithmException, IOException   
+    public SocketIOServer configSocketIOServer() throws NoSuchAlgorithmException, IOException   
     {  
     	Configuration config = new Configuration();
     	
@@ -76,13 +76,21 @@ public  class NettySocketIOServer extends BaseSocketServer{
         return server;
     }
     
+    public SocketIOServer getServer(){
+    	return server;
+    }
+    
+    public void startServer(){
+    	this.server.start();
+    }
+    
     protected boolean authorizedClient(HandshakeData data){
     	
     	return true;
     }
     
-    @PreDestroy  
-    public void destory() { 
+    
+    public void stopServer() { 
 		server.stop();
 	}
 }

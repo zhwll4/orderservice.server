@@ -36,10 +36,7 @@
 			<list>
 				<value>classpath:config.properties</value>
 			</list>
-	</bean>
-	<bean id="appProperty"
-		class="org.springframework.beans.factory.config.PreferencesPlaceholderConfigurer">
-		<property name="properties" ref="propertyConfigurer" />
+		</property>
 	</bean>
 	
 	<bean id="messageSource"
@@ -301,7 +298,7 @@
 	<context:annotation-config />
 	<tx:annotation-driven transaction-manager="transactionManagerJTA" />
 	<!-- 扫描包 -->
-	<context:component-scan base-package="orderservice.server.service.app.sample"></context:component-scan>
+	<context:component-scan base-package="orderservice.server.service.app"></context:component-scan>
 
 
 	<!-- 事务传播性拦截器，这里统一配置传播性，不用每个Transaction 注解配置 -->

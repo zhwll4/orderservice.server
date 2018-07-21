@@ -32,21 +32,69 @@
 
 	<bean id="propertyConfigurer"
 		class="org.springframework.beans.factory.config.PropertyPlaceholderConfigurer">
-		<property name="location" value="/WEB-INF/classes/jdbc.properties" />
+		<property name="locations">
+			<list>
+				<value>classpath:config.properties</value>
+			</list>
+		</property>
 	</bean>
-
+	
 	<bean id="messageSource"
 		class="org.springframework.context.support.ReloadableResourceBundleMessageSource">
 		<property name="cacheSeconds" value="10"></property>
 		<property name="basenames">
 			<list>
 				<value>classpath:systemset</value>
-				<value>classpath:jdbc</value>
+				<value>classpath:config</value>
 			</list>
 		</property>
 	</bean>
 
-	<!-- 两个数据源的共用配置，方便下面直接引用 -->
+
+	<!-- ###########################################JTA 配置开始########################################### -->
+	<bean id="atomikosTransactionManager" class="com.atomikos.icatch.jta.UserTransactionManager"
+		init-method="init" destroy-method="close">
+		<property name="forceShutdown" value="false" />
+	</bean>
+
+	<bean id="atomikosUserTransaction" class="com.atomikos.icatch.jta.UserTransactionImp">
+		<property name="transactionTimeout" value="300" />
+	</bean>
+
+
+	<bean id="transactionManagerJTA"
+		class="org.springframework.transaction.jta.JtaTransactionManager"
+		depends-on="atomikosTransactionManager,atomikosUserTransaction">
+		<property name="transactionManager" ref="atomikosTransactionManager" />
+		<property name="userTransaction" ref="atomikosUserTransaction" />
+		<property name="allowCustomIsolationLevels" value="true" />
+		<qualifier value="defaultJTATransactionManager"></qualifier>
+	</bean>
+
+
+	<!-- *************************************JTA 配置结束************************************* -->
+
+	<!-- ###########################################缓存配置开始，这里使用的是Ecache,可以使用其他的cache########################################### -->
+
+	<!-- ehcache缓存配置 -->
+	<bean id="cacheManager" class="org.springframework.cache.ehcache.EhCacheCacheManager">
+		<property name="cacheManager" ref="ehCacheManager" />
+	</bean>
+
+	<!-- cacheManager -->
+	<bean id="ehCacheManager"
+		class="org.springframework.cache.ehcache.EhCacheManagerFactoryBean">
+		<property name="configLocation" value="classpath:/ehcahce.xml" />
+		<property name="cacheManagerName" value="sampleCache1" />
+		<property name="shared" value="true" />
+	</bean>
+
+	<!-- *************************************缓存配置结束************************************* -->
+
+
+	<!-- ###########################################共用配置开始 ########################################### -->
+
+	<!-- 数据源的共用配置，方便下面直接继承 -->
 	<bean id="abstractXADataSource" class="com.atomikos.jdbc.AtomikosDataSourceBean"
 		init-method="init" destroy-method="close" abstract="true">
 		<property name="poolSize" value="10" />
@@ -62,28 +110,14 @@
 		<property name="testQuery">
 			<value>select 1</value>
 		</property>
-
 	</bean>
 
-
-	<bean id="atomikosTransactionManager" class="com.atomikos.icatch.jta.UserTransactionManager"
-		init-method="init" destroy-method="close">
-		<property name="forceShutdown" value="false" />
-	</bean>
-
-	<bean id="atomikosUserTransaction" class="com.atomikos.icatch.jta.J2eeUserTransaction">
-		<property name="transactionTimeout" value="300" />
-	</bean>
-
-	<bean id="transactionManagerJTA"
-		class="org.springframework.transaction.jta.JtaTransactionManager"
-		depends-on="atomikosTransactionManager,atomikosUserTransaction">
-		<property name="transactionManager" ref="atomikosTransactionManager" />
+	<!-- JPA的共用配置，方便下面直接继承,JPA还是有很多易用的地方 这里 JPA 也配着用 -->
+	<bean id="myAtomikosJtaPlatfom" class="orderservice.server.core.jta.AtomikosJtaPlatfom"
+		depends-on="transactionManagerJTA">
+		<property name="ransactionManager" ref="atomikosTransactionManager" />
 		<property name="userTransaction" ref="atomikosUserTransaction" />
-		<property name="allowCustomIsolationLevels" value="true" />
 	</bean>
-
-
 	<bean id="hibernateJpaVendorAdapter"
 		class="org.springframework.orm.jpa.vendor.HibernateJpaVendorAdapter">
 		<property name="databasePlatform">
@@ -96,15 +130,14 @@
 			<value>true</value>
 		</property>
 	</bean>
-
-	<bean id="entityManagerFactory"
+	<bean id="abstactEntityManagerFactory"
 		class="org.springframework.orm.jpa.LocalContainerEntityManagerFactoryBean"
 		abstract="true">
-		<property name="persistenceXmlLocation" value="classpath*:WEB-INF/persistence.xml" />
-		<property name="persistenceUnitName" value="mysqlPU" />
 		<property name="jpaVendorAdapter" ref="hibernateJpaVendorAdapter" />
+		<property name="persistenceUnitName" value="mysqlPU" />
 		<property name="jpaProperties">
 			<props>
+				<prop key="javax.persistence.transactionType">JTA</prop>
 				<prop key="hibernate.show_sql">true</prop>
 				<prop key="hibernate.format_sql">true</prop>
 				<prop key="hibernate.generate_statistics">true</prop>
@@ -112,17 +145,51 @@
 				<prop key="hibernate.jdbc.batch_size">50</prop>
 				<prop key="hibernate.jdbc.fetch_size">50</prop>
 				<prop key="hibernate.current_session_context_class">jta</prop>
-				<!-- prop key="hibernate.cache.use_second_level_cache">true</prop>
+				<prop key="hibernate.dialect">${dialect.MySQL5}</prop>
+				<prop key="hibernate.connection.driver_class">${xa.datasource.mysql}</prop>
+				<prop key="hibernate.auto_quote_keyword">true</prop>
+				<prop key="hibernate.transaction.jta.platform">orderservice.server.core.jta.AtomikosJtaPlatfom
+				</prop>
+				<prop key="hibernate.cache.use_second_level_cache">true</prop>
 				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.SingletonEhCacheRegionFactory
-				</prop -->
+				</prop>
 			</props>
 		</property>
 	</bean>
 
 
+	<!-- HIBERNATE SessionFactory 共用配置 -->
+	<bean id="abstractSessionFactory"
+		class="org.springframework.orm.hibernate4.LocalSessionFactoryBean"
+		abstract="true">
+		<property name="jtaTransactionManager" ref="transactionManagerJTA"></property>
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.show_sql">true</prop>
+				<prop key="hibernate.format_sql">true</prop>
+				<prop key="hibernate.generate_statistics">true</prop>
+				<prop key="hibernate.originalText">replace</prop>
+				<prop key="hibernate.jdbc.batch_size">50</prop>
+				<prop key="hibernate.jdbc.fetch_size">50</prop>
+				<prop key="hibernate.transaction.factory_class">org.hibernate.tran‌​saction.JTATransacti‌​onFactory
+				</prop>
+				<!-- prop key="hibernate.transaction.factory_class">net.sf.hibernate.transaction.JTATransactionFactory</prop -->
 
-	<!-- 数据源1 -->
-	<bean id="dataSourceA" parent="abstractXADataSource">
+				<prop key="hibernate.current_session_context_class">jta</prop>
+				<prop key="hibernate.cache.use_query_cache">true</prop>
+				<prop key="hibernate.cache.use_second_level_cache">true</prop>
+				<prop key="hibernate.cache.region.factory_class">org.hibernate.cache.ehcache.SingletonEhCacheRegionFactory
+				</prop>
+			</props>
+		</property>
+	</bean>
+	<!-- *************************************共用配置结束************************************* -->
+
+
+	<!-- ###########################################默认数据源等相关配置开始########################################### -->
+
+	<!-- 默认数据源 -->
+	<bean id="defaultDataSource" parent="abstractXADataSource">
 		<property name="uniqueResourceName" value="XA1DBMS" />
 		<property name="xaDataSourceClassName" value="${xa.datasource.mysql}" />
 		<property name="xaProperties">
@@ -138,20 +205,51 @@
 		<property name="maxPoolSize" value="30" />
 	</bean>
 
-	<bean id="entityManagerA" parent="entityManagerFactory">
-		<property name="dataSource" ref="dataSourceA" />
-		<property name="packagesToScan" value="orderservice.server.core.po" />
+	<!-- 默认JPA管理工厂 -->
+	<bean id="defaultEntityManager" parent="abstactEntityManagerFactory">
+		<property name="dataSource" ref="defaultDataSource" />
+		<property name="packagesToScan" value="orderservice.server.core.po" /><!-- 
+			修改成实际使用的ENTITY包 -->
 	</bean>
 
+	<!-- 默认的JPA工厂注入 -->
+	<!-- base-package 修改成实际使用的包 , repository-impl-postfix,query-lookup-strategy 
+		是默认值 -->
+	<jpa:repositories base-package="orderservice.server.service.app.sample.dba"
+		repository-impl-postfix="Impl" query-lookup-strategy="create-if-not-found"
+		entity-manager-factory-ref="defaultEntityManager"
+		transaction-manager-ref="transactionManagerJTA">
+	</jpa:repositories>
 
-	<!-- 数据源2 -->
-	<bean id="dataSourceB" parent="abstractXADataSource">
+	<!-- 默认的 SessionFactory -->
+	<bean id="defaultSessionFactory" parent="abstractSessionFactory">
+		<property name="dataSource" ref="defaultDataSource" />
+		<property name="packagesToScan">
+			<list>
+				<value>orderservice.server.core.po</value><!-- 修改成实际使用的ENTITY包 -->
+			</list>
+		</property>
+		<property name="hibernateProperties">
+			<props>
+				<prop key="hibernate.dialect">${dialect.MySQL5}</prop>
+			</props>
+		</property>
+	</bean>
+
+	<!-- *************************************默认数据源等相关配置结束************************************* -->
+
+
+
+	<!-- ###########################################其他数据源等相关配置开始,如果只有一个数据源，可以注释########################################### -->
+	<!-- 留着备用 -->
+	<!-- 数据源 -->
+	<bean id="secondDataSource" parent="abstractXADataSource">
 		<property name="uniqueResourceName" value="XA2DBMS" />
 		<property name="xaDataSourceClassName" value="${xa.datasource.mysql}" />
 		<property name="xaProperties">
 			<props>
 				<prop key="pinGlobalTxToPhysicalConnection">true</prop>
-				<prop key="URL">${jdbc.url}</prop>
+				<prop key="URL">${jdbc.url2}</prop>
 				<prop key="user">${jdbc.username}</prop>
 				<prop key="password">${jdbc.password}</prop>
 			</props>
@@ -161,42 +259,87 @@
 		<property name="maxPoolSize" value="30" />
 	</bean>
 
-	<bean id="entityManagerB" parent="entityManagerFactory">
-		<property name="dataSource" ref="dataSourceB" />
-		<property name="packagesToScan" value="orderservice.server.core.po" />
+	<!-- JPA管理工厂 -->
+	<!-- packagesToScan 修改成实际使用的ENTITY包 -->
+	<bean id="secondEntityManager" parent="abstactEntityManagerFactory">
+		<property name="dataSource" ref="secondDataSource" />
+		<property name="packagesToScan" value="orderservice.server.core.po2" />
 	</bean>
-	
-	<bean id="baseTransactionProxy"
-		class="org.springframework.transaction.interceptor.TransactionProxyFactoryBean"
-		abstract="true">
-		<property name="transactionManager" ref="transactionManagerJTA" />
-		<property name="transactionAttributes">
+
+	<!-- JPA工厂注入 -->
+	<!-- base-package 修改成实际使用的包 -->
+	<jpa:repositories base-package="orderservice.server.service.app.sample.dbb"
+		entity-manager-factory-ref="secondEntityManager"
+		transaction-manager-ref="transactionManagerJTA">
+	</jpa:repositories>
+
+
+	<!-- annotatedClasses修改成实际使用的ENTITY包 -->
+	<bean id="secondSessionFactory" parent="abstractSessionFactory">
+		<property name="dataSource" ref="secondDataSource" />
+		<property name="packagesToScan">
+			<list>
+				<value>orderservice.server.core.po2</value>
+			</list>
+		</property>
+		<property name="hibernateProperties">
 			<props>
-				<prop key="insert*">PROPAGATION_REQUIRED,-MiniException</prop>
-				<prop key="add*">PROPAGATION_REQUIRED,-MiniException</prop>
-				<prop key="update*">PROPAGATION_REQUIRED,-MiniException</prop>
-				<prop key="save*">PROPAGATION_REQUIRED,-MiniException</prop>
-				<prop key="saveOrUpdate*">PROPAGATION_REQUIRED,-MiniException</prop>
-				<prop key="delete*">PROPAGATION_REQUIRED,-MiniException</prop>
-				<prop key="get*">PROPAGATION_REQUIRED,readOnly,-MiniException</prop>
-				<prop key="search*">PROPAGATION_REQUIRED,readOnly,-MiniException</prop>
-				<prop key="*">PROPAGATION_REQUIRED,readOnly,-MiniException</prop>
+				<prop key="hibernate.dialect">${dialect.MySQL5}</prop>
 			</props>
 		</property>
 	</bean>
 
+	<!-- *************************************默认数据源等相关配置结束************************************* -->
 
 
-
-
-
-
+	<!-- ###########################################事务等其他相关配置开始########################################### -->
 
 	<!-- 注解事务配置 -->
 	<context:annotation-config />
 	<tx:annotation-driven transaction-manager="transactionManagerJTA" />
-	<context:component-scan base-package="dtr.tj.hosp.manger.service.imp"></context:component-scan>
-	<context:component-scan base-package="aircontrol.action"></context:component-scan>
+	<!-- 扫描包 -->
+	<context:component-scan base-package="orderservice.server.service.app"></context:component-scan>
 
 
+	<!-- 事务传播性拦截器，这里统一配置传播性，不用每个Transaction 注解配置 -->
+	<bean id="txInterceptor"
+		class="org.springframework.transaction.interceptor.TransactionInterceptor">
+		<property name="transactionManager" ref="transactionManagerJTA" />
+		<property name="transactionAttributes">
+			<props>
+				<prop key="insert*">PROPAGATION_REQUIRED,+NotRollBackException,-Exception
+				</prop>
+				<prop key="add*">PROPAGATION_REQUIRED,+NotRollBackException,-Exception
+				</prop>
+				<prop key="update*">PROPAGATION_REQUIRED,+NotRollBackException,-Exception
+				</prop>
+				<prop key="save*">PROPAGATION_REQUIRED,+NotRollBackException,-Exception
+				</prop>
+				<prop key="saveOrUpdate*">PROPAGATION_REQUIRED,+NotRollBackException,-Exception
+				</prop>
+				<prop key="delete*">PROPAGATION_REQUIRED,+NotRollBackException,-Exception
+				</prop>
+				<prop key="get*">PROPAGATION_REQUIRED,readOnly,+NotRollBackException,-Exception
+				</prop>
+				<prop key="search*">PROPAGATION_REQUIRED,readOnly,+NotRollBackException,-Exception
+				</prop>
+				<prop key="*">PROPAGATION_REQUIRED,readOnly,+NotRollBackException,-Exception
+				</prop>
+			</props>
+		</property>
+	</bean>
+	<bean
+		class="org.springframework.aop.framework.autoproxy.BeanNameAutoProxyCreator">
+		<property name="beanNames">
+			<list>
+				<value>*Service</value>
+			</list>
+		</property>
+		<property name="interceptorNames">
+			<list>
+				<value>txInterceptor</value>
+			</list>
+		</property>
+	</bean>
+	<!-- *************************************事务等其他相关配置结束************************************* -->
 </beans>

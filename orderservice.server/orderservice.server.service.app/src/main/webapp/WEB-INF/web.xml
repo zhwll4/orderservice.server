@@ -28,7 +28,7 @@
 	
 	<servlet>
 		<servlet-name>springmvcServlet</servlet-name>
-		<servlet-class>orderservice.server.service.app.web.DefaultDispatcherServlet</servlet-class>
+		<servlet-class>orderservice.server.service.app.web.APPDispatcherServlet</servlet-class>
 		<init-param>
 			<param-name>contextConfigLocation</param-name>
 			<param-value>/WEB-INF/springmvc-context.xml</param-value>

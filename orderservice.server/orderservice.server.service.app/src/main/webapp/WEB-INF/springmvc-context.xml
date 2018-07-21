@@ -27,7 +27,8 @@
 
 			<mvc:exclude-mapping path="/**/login/*" />
 			<mvc:exclude-mapping path="/**/register/*" />
-			<bean class="orderservice.server.service.app.web.DefaultInterceptor"></bean>
+			<mvc:exclude-mapping path="/**/nocheckLogin/**" />
+			<bean class="orderservice.server.service.app.web.APPInterceptor"></bean>
 		</mvc:interceptor>
 	</mvc:interceptors>
 
