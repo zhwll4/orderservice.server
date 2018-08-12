@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:rabbit="http://www.springframework.org/schema/rabbit"
+    xsi:schemaLocation="http://www.springframework.org/schema/beans  
+     http://www.springframework.org/schema/beans/spring-beans-3.0.xsd  
+     http://www.springframework.org/schema/rabbit  
+     http://www.springframework.org/schema/rabbit/spring-rabbit-1.2.xsd">
+     
+    <!--配置connection-factory，指定连接rabbit server参数 -->
+    <rabbit:connection-factory id="connectionFactory" virtual-host="orderservice" 
+        username="orderservice" password="orderservice" host="127.0.0.1" port="5672"/>
+    
+    <!--通过指定下面的admin信息，当前producer中的exchange和queue会在rabbitmq服务器上自动生成 -->
+    <rabbit:admin id="connectAdmin" connection-factory="connectionFactory" />
+	
+    
+    
+    <!--定义一个用户点菜消息的队列 -->
+    <rabbit:queue name="queue4UserOrder" durable="true" auto-delete="false"
+        exclusive="false" declared-by="connectAdmin" />
+	
+    <!-- 用于点餐后状态改变 -->
+    <rabbit:queue name="queue4OrderStatue" durable="true" auto-delete="false"
+        exclusive="false" declared-by="connectAdmin" />
+    
+    <!-- 其他信息，暂定备用 -->
+    <rabbit:queue name="queue4OrderOther" durable="true" auto-delete="false"
+        exclusive="false" declared-by="connectAdmin" />
+    
+    <!-- 用于接系统信息 -->
+    <rabbit:queue name="queue4System" durable="true" auto-delete="false"
+        exclusive="false" declared-by="connectAdmin" />
+    
+    <!-- 这里暂时使用  TOPIC 方式  -->
+    <rabbit:topic-exchange name="exchange.order.topic.default"
+        durable="true" auto-delete="false" declared-by="connectAdmin2">
+        <rabbit:bindings>
+            <rabbit:binding queue="queue4UserOrder" pattern="orderservice.user.order.unpaid.*"></rabbit:binding>
+            <rabbit:binding queue="queue4OrderStatue" pattern="orderservice.user.order.statue.*"></rabbit:binding>
+            <rabbit:binding queue="queue4OrderOther" pattern="orderservice.user.order.other.*"></rabbit:binding>
+            <rabbit:binding queue="queue4System" pattern="orderservice.system.*"></rabbit:binding>
+        </rabbit:bindings>
+    </rabbit:topic-exchange>
+	
+    <!--定义rabbit template用于数据发送 -->
+    <rabbit:template id="orderTopicTemplate" connection-factory="connectionFactory"
+        exchange="exchange.order.topic.default" />
+
+    <!-- 消息接收者，APP（商户）端只需要 接收消费者的点单信息,其他信息，系统信息 -->
+    <bean id="unpaidMessageConsumer" class="orderservice.server.service.app.mq.message.UnpaidMessageConsumer"></bean>
+    <bean id="otherMessageConsumer" class="orderservice.server.service.app.mq.message.OtherMessageConsumer"></bean>
+    <bean id="systemMessageConsumer" class="orderservice.server.service.app.mq.message.SystemMessageConsumer"></bean>
+    
+    <rabbit:listener-container
+        connection-factory="connectionFactory">
+        <rabbit:listener queues="queue4UserOrder" ref="unpaidMessageConsumer" method="onMessage" />
+        <rabbit:listener queues="queue4OrderOther" ref="otherMessageConsumer" method="onMessage" />
+        <rabbit:listener queues="queue4System" ref="systemMessageConsumer" method="onMessage" />
+    </rabbit:listener-container>
+</beans>
