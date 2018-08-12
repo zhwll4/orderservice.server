@@ -1,6 +1,9 @@
 package orderservice.server.test;
 
 import java.util.Map;
+import java.util.Scanner;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledFuture;
 import java.util.concurrent.TimeUnit;
 
@@ -15,6 +18,8 @@ import orderservice.server.core.po.Test1;
 
 public class TestTkoen {
 
+	private static ExecutorService defaultThreadPool = Executors.newFixedThreadPool(12);
+	
 	public static void main(String[] args) {
 		
 //		TestF p = new TestF();
@@ -37,9 +42,21 @@ public class TestTkoen {
 //		System.out.println(JsonUtils.stringify(JsonUtils.parseObject(datas2, TestF.class)));
 		
 		
-		new TestTkoen().scheduleLoginChecker(null,1);
+		//new TestTkoen().scheduleLoginChecker(null,1);
+		
+		TestTkoen t = new TestTkoen();
+		
+		
+		for(int i=1;i<100;i++){
+			t.startNewThread(i);
+		}
 		
 	}
+	
+	protected void startNewThread(int i){
+		defaultThreadPool.execute(new WaitForInput(i));
+	}
+	
 	
 	protected ScheduledFuture<?> scheduleLoginChecker(SocketIOClient client,int seconds){
 		
@@ -73,6 +90,35 @@ public class TestTkoen {
         }
         
     }
+	
+	protected class WaitForInput implements Runnable{
+		
+		int idnex;
+		
+        public WaitForInput(int idnex) {
+            // TODO Auto-generated constructor stub
+        	this.idnex = idnex;
+        }
+        
+        @Override
+        public void run() {
+            // TODO Auto-generated method stub
+        	Scanner input = new Scanner(System.in);
+        	String val = null;       // 记录输入的字符串
+            do{
+                System.out.print(""+idnex+"、请输入：");
+                val = input.next();       // 等待输入值
+                System.out.println("您输入的是："+val);
+            }while(!val.equals("#"));   // 如果输入的值不是#就继续输入
+            System.out.println("你输入了\"#\"，程序已经退出！");
+            input.close(); // 关闭资源
+        }
+        
+    }
+	
+	
+	
+    
 	
 }
 class TestF{
